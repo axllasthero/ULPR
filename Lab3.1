@@ -1,0 +1,236 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Windows.Forms;
+
+namespace УМП3._2
+{
+    public partial class Form1
+    {
+        private ListBox listBox;
+        private Button generateButton;
+        private Button readButton;
+        private Button filterButton;
+        private TextBox TypeTextBox;
+        private Label TypeLabel;
+
+        private void InitializeComponent()
+        {
+            listBox = new ListBox();
+            generateButton = new Button();
+            readButton = new Button();
+            filterButton = new Button();
+            TypeTextBox = new TextBox();
+            TypeLabel = new Label();
+            SuspendLayout();
+            // 
+            // listBox
+            // 
+            listBox.FormattingEnabled = true;
+            listBox.ItemHeight = 15;
+            listBox.Location = new Point(9, 8);
+            listBox.Margin = new Padding(3, 2, 3, 2);
+            listBox.Name = "listBox";
+            listBox.Size = new Size(666, 274);
+            listBox.TabIndex = 0;
+            // 
+            // generateButton
+            // 
+            generateButton.Location = new Point(9, 285);
+            generateButton.Margin = new Padding(3, 2, 3, 2);
+            generateButton.Name = "generateButton";
+            generateButton.Size = new Size(158, 22);
+            generateButton.TabIndex = 1;
+            generateButton.Text = "Сгенерировать";
+            generateButton.UseVisualStyleBackColor = true;
+            generateButton.Click += generateButton_Click;
+            // 
+            // readButton
+            // 
+            readButton.Location = new Point(175, 285);
+            readButton.Margin = new Padding(3, 2, 3, 2);
+            readButton.Name = "readButton";
+            readButton.Size = new Size(158, 22);
+            readButton.TabIndex = 2;
+            readButton.Text = "Отобразить";
+            readButton.UseVisualStyleBackColor = true;
+            readButton.Click += readButton_Click;
+            // 
+            // filterButton
+            // 
+            filterButton.Location = new Point(339, 285);
+            filterButton.Margin = new Padding(3, 2, 3, 2);
+            filterButton.Name = "filterButton";
+            filterButton.Size = new Size(158, 22);
+            filterButton.TabIndex = 3;
+            filterButton.Text = "Отфильтровать";
+            filterButton.UseVisualStyleBackColor = true;
+            filterButton.Click += filterButton_Click;
+            // 
+            // monthTextBox
+            // 
+            TypeTextBox.Location = new Point(569, 285);
+            TypeTextBox.Margin = new Padding(3, 2, 3, 2);
+            TypeTextBox.Name = "TypeTextBox";
+            TypeTextBox.Size = new Size(36, 23);
+            TypeTextBox.TabIndex = 4;
+            TypeTextBox.TextChanged += TypeTextBox_TextChanged;
+            // 
+            // monthLabel
+            // 
+            TypeLabel.AutoSize = true;
+            TypeLabel.Location = new Point(517, 289);
+            TypeLabel.Name = "TypeLabel";
+            TypeLabel.Size = new Size(46, 15);
+            TypeLabel.TabIndex = 5;
+            TypeLabel.Text = "Тип:";
+            TypeLabel.Click += TypeLabel_Click;
+            // 
+            // Form1
+            // 
+            AutoScaleDimensions = new SizeF(7F, 15F);
+            AutoScaleMode = AutoScaleMode.Font;
+            ClientSize = new Size(682, 315);
+            Controls.Add(TypeLabel);
+            Controls.Add(TypeTextBox);
+            Controls.Add(filterButton);
+            Controls.Add(readButton);
+            Controls.Add(generateButton);
+            Controls.Add(listBox);
+            Margin = new Padding(3, 2, 3, 2);
+            Name = "Form1";
+            Text = "AEROFLOT App";
+            ResumeLayout(false);
+            PerformLayout();
+        }
+
+        private void InitializeUI()
+        {
+            listBox.Items.Clear();
+        }
+
+        private void generateButton_Click(object sender, EventArgs e)
+        {
+            List<aero> AEROFLOTES = GenerateAEROFLOTES();
+            SaveAEROFLOTESToFile(AEROFLOTES);
+            MessageBox.Show("Рейсы успешно созданы и сохранены.");
+        }
+
+        private List<aero> GenerateAEROFLOTES()
+        {
+            Random random = new Random();
+            List<aero> AEROFLOTES = new List<aero>();
+
+            string[] Destinations = { "Paris", "Moscow", "Berlin", "Egypt", "NewYork", "Tokyo", "Jamaica", "Phuket", "London", "Tomsk" };
+            string[] PlaneTypes = { "Boeing-737", "Airbus", "IL-96", "Ty-154", "Superjet-100", "Private", "Boeing-777" };
+
+            for (int i = 0; i < 10; i++)
+            {
+                string destination = Destinations[random.Next(Destinations.Length)];
+                string planeNumber = $"({random.Next(100, 1000)})";
+                string planeType = PlaneTypes[random.Next(PlaneTypes.Length)];
+
+                AEROFLOTES.Add(new aero
+                {
+                    Destination = destination,
+                    PlaneNumber = planeNumber,
+                    PlaneType = planeType
+                });
+            }
+
+            // Sort AEROFLOTES by FirstName
+            AEROFLOTES.Sort((AEROFLOT1, AEROFLOT2) => string.Compare(AEROFLOT1.Destination, AEROFLOT2.Destination));
+
+            return AEROFLOTES;
+        }
+
+        private void SaveAEROFLOTESToFile(List<aero> AEROFLOTES)
+        {
+            string filePath = "aero.txt";
+            using (StreamWriter writer = new StreamWriter(filePath))
+            {
+                foreach (var AEROFLOT in AEROFLOTES)
+                {
+                    writer.WriteLine($"{AEROFLOT.Destination}, {AEROFLOT.PlaneNumber},{AEROFLOT.PlaneType}");
+                }
+            }
+        }
+
+        private void readButton_Click(object sender, EventArgs e)
+        {
+            listBox.Items.Clear();
+            List<aero> AEROFLOTES = ReadAEROFLOTESFromFile();
+            foreach (var AEROFLOT in AEROFLOTES)
+            {
+                listBox.Items.Add($"{AEROFLOT.Destination}, {AEROFLOT.PlaneNumber}, {AEROFLOT.PlaneType}");
+            }
+        }
+
+        private List<aero> ReadAEROFLOTESFromFile()
+        {
+            List<aero> AEROFLOTES = new List<aero>();
+            string filePath = "aero.txt";
+
+            if (File.Exists(filePath))
+            {
+                using (StreamReader reader = new StreamReader(filePath))
+                {
+                    string line;
+                    while ((line = reader.ReadLine()) != null)
+                    {
+                        string[] parts = line.Split(',');
+                        if (parts.Length == 3)
+                        {
+                            aero AEROFLOT = new aero
+                            {
+                                Destination = parts[0],
+                                PlaneNumber = parts[1],
+                                PlaneType = parts[2]
+                            };
+                            AEROFLOTES.Add(AEROFLOT);
+                        }
+                    }
+                }
+            }
+            else
+            {
+                MessageBox.Show("Файл не существует.");
+            }
+
+            return AEROFLOTES;
+        }
+
+        private void filterButton_Click(object sender, EventArgs e)
+        {
+            listBox.Items.Clear();
+            List<aero> AEROFLOTES = ReadAEROFLOTESFromFile();
+            string[] PlaneTypes = { "Boeing-737", "Airbus", "IL-96", "Ty-154", "Superjet-100", "Private", "Boeing-777" };
+            if (PlaneTypes.Contains(TypeTextBox.Text))
+            {
+                List<aero> filteredAEROFLOT = AEROFLOTES.FindAll(AEROFLOT => AEROFLOT.PlaneType == TypeTextBox.Text);
+                if (filteredAEROFLOT.Count > 0)
+                {
+                    foreach (var AEROFLOT in filteredAEROFLOT)
+                    {
+                        listBox.Items.Add($"{AEROFLOT.Destination}, {AEROFLOT.PlaneNumber}");
+                    }
+                }
+                else
+                {
+                    MessageBox.Show("Рейсов с таким самолётом не найдены");
+                }
+            }
+            else
+            {
+                MessageBox.Show("Пожалуйста, введите действительный тип самолёта.");
+            }
+        }
+    }
+
+    public class aero
+    {
+        public string Destination { get; set; }
+        public string PlaneNumber { get; set; }
+        public string PlaneType { get; set; }
+    }
+}
