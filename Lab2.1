@@ -1,0 +1,33 @@
+using System;
+using System.IO;
+
+class Program
+{
+    static void Main()
+    {
+        string filePath = "input.txt"; // Путь к входному файлу
+
+        try
+        {
+            // Чтение текста из файла
+            string text = File.ReadAllText(filePath);
+
+            // Подсчет количества запятых
+            int commaCount = 0;
+            foreach (char c in text)
+            {
+                if (c == ',')
+                {
+                    commaCount++;
+                }
+            }
+
+            // Вывод результата
+            Console.WriteLine($"Количество запятых в тексте: {commaCount}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Произошла ошибка: {ex.Message}");
+        }
+    }
+}
