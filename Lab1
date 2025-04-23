@@ -1,0 +1,167 @@
+using System;
+using System.IO;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Security.Cryptography;
+
+// Базовый класс Документ
+public class Document : IDisposable
+{
+    public string FilePath { get; protected set; }
+    public string Content { get; protected set; }
+
+    public Document(string filePath)
+    {
+        FilePath = filePath;
+        Content = string.Empty;
+    }
+
+    // Создание нового документа
+    public virtual void Create()
+    {
+        if (File.Exists(FilePath))
+        {
+            throw new IOException("Файл уже существует");
+        }
+        File.WriteAllText(FilePath, string.Empty);
+    }
+
+    // Наполнение содержимым
+    public virtual void FillContent(string content)
+    {
+        Content = content;
+        File.WriteAllText(FilePath, Content);
+    }
+
+    // Копирование документа
+    public virtual void Copy(string newPath)
+    {
+        File.Copy(FilePath, newPath);
+    }
+
+    // Перемещение документа
+    public virtual void Move(string newPath)
+    {
+        File.Move(FilePath, newPath);
+        FilePath = newPath;
+    }
+
+    // Удаление документа
+    public virtual void Delete()
+    {
+        if (File.Exists(FilePath))
+        {
+            File.Delete(FilePath);
+        }
+    }
+
+    public void Dispose()
+    {
+        // Очистка ресурсов
+    }
+}
+
+// Зашифрованный документ
+public class EncryptedDocument : Document
+{
+    private byte[] _key;
+    private byte[] _iv;
+
+    public EncryptedDocument(string filePath, string key) : base(filePath)
+    {
+        using (var deriveBytes = new Rfc2898DeriveBytes(key, 16))
+        {
+            _key = deriveBytes.GetBytes(32);
+            _iv = deriveBytes.GetBytes(16);
+        }
+    }
+
+    // Шифрование содержимого
+    private string Encrypt(string text)
+    {
+        using (Aes aes = Aes.Create())
+        {
+            aes.Key = _key;
+            aes.IV = _iv;
+
+            ICryptoTransform encryptor = aes.CreateEncryptor();
+
+            using (MemoryStream ms = new MemoryStream())
+            using (CryptoStream cs = new CryptoStream(ms, encryptor, CryptoStreamMode.Write))
+            {
+                using (StreamWriter sw = new StreamWriter(cs))
+                {
+                    sw.Write(text);
+                }
+                return Convert.ToBase64String(ms.ToArray());
+            }
+        }
+    }
+
+    // Дешифрование содержимого
+    private string Decrypt(string cipherText)
+    {
+        using (Aes aes = Aes.Create())
+        {
+            aes.Key = _key;
+            aes.IV = _iv;
+
+            ICryptoTransform decryptor = aes.CreateDecryptor();
+
+            byte[] cipherBytes = Convert.FromBase64String(cipherText);
+
+            using (MemoryStream ms = new MemoryStream(cipherBytes))
+            using (CryptoStream cs = new CryptoStream(ms, decryptor, CryptoStreamMode.Read))
+            using (StreamReader sr = new StreamReader(cs))
+            {
+                return sr.ReadToEnd();
+            }
+        }
+    }
+
+    // Переопределение метода наполнения с шифрованием
+    public override void FillContent(string content)
+    {
+        Content = Encrypt(content);
+        File.WriteAllText(FilePath, Content);
+    }
+
+    // Чтение с дешифровкой
+    public string ReadDecrypted()
+    {
+        string encrypted = File.ReadAllText(FilePath);
+        return Decrypt(encrypted);
+    }
+}
+
+// Обработчик файлов
+
+
+
+// Пример использования
+class Program
+{
+    static void Main()
+    {
+        try
+        {
+            // Работа с обычным документом
+            var doc = new Document("test.txt");
+            doc.Create();
+            doc.FillContent("Numbers: 5, 10, 3, 8");
+
+
+            // Работа с зашифрованным документом
+            var encDoc = new EncryptedDocument("secret.txt", "password123");
+            encDoc.Create();
+            encDoc.FillContent("Secret numbers: 7, 2, 9");
+
+            Console.WriteLine("Зашифрованное содержимое: " + File.ReadAllText("secret.txt"));
+            Console.WriteLine("Расшифрованное содержимое: " + encDoc.ReadDecrypted());
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Ошибка: " + ex.Message);
+        }
+    }
+}
