@@ -1,0 +1,173 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text;
+using System.Text.Encodings.Web;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.Unicode;
+
+public interface IDocument
+{
+    void Save();
+    void Display();
+}
+
+[JsonPolymorphic]
+[JsonDerivedType(typeof(Document), nameof(Document))]
+[JsonDerivedType(typeof(EncryptedDocument), nameof(EncryptedDocument))]
+public abstract class BaseDocument : IDocument
+{
+    public string FilePath { get; protected set; }
+    public string Content { get; protected set; }
+
+    protected BaseDocument(string filePath)
+    {
+        FilePath = filePath;
+        Content = string.Empty;
+    }
+
+    public abstract void Save();
+
+    public virtual void Display()
+    {
+        Console.WriteLine($"Document content: {Content}");
+    }
+}
+
+public class Document : BaseDocument
+{
+    public Document(string filePath) : base(filePath) { }
+
+    public void FillContent(string content)
+    {
+        Content = content;
+        Save();
+    }
+
+    public override void Save()
+    {
+        try
+        {
+            File.WriteAllText(FilePath, Content);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving file: {ex.Message}");
+        }
+    }
+}
+
+public class EncryptedDocument : BaseDocument
+{
+    private readonly string _encryptionKey;
+
+    public EncryptedDocument(string filePath, string encryptionKey) : base(filePath)
+    {
+        _encryptionKey = encryptionKey;
+    }
+
+    public void FillContent(string content)
+    {
+        string encryptedContent = Encrypt(content);
+        Content = encryptedContent;
+        Save();
+    }
+
+    public override void Save()
+    {
+        try
+        {
+            File.WriteAllText(FilePath, Content);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving encrypted file: {ex.Message}");
+        }
+    }
+
+    private string Encrypt(string input)
+    {
+        var output = new char[input.Length];
+        for (int i = 0; i < input.Length; i++)
+        {
+            output[i] = (char)(input[i] ^ _encryptionKey[i % _encryptionKey.Length]);
+        }
+        return new string(output);
+    }
+
+    public string ReadDecryptedContent()
+    {
+        try
+        {
+            string encryptedContent = File.ReadAllText(FilePath);
+            return Decrypt(encryptedContent);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error reading encrypted content: {ex.Message}");
+            return null;
+        }
+    }
+
+    private string Decrypt(string input)
+    {
+        return Encrypt(input);
+    }
+}
+
+public class DocumentsStorage
+{
+    public List<BaseDocument> Documents { get; set; } = new List<BaseDocument>();
+}
+
+public class Program
+{
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = true,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Encoder = JavaScriptEncoder.Create(UnicodeRanges.All)
+    };
+
+    static void Main()
+    {
+        const string filePath = "documents.json";
+
+        try
+        {
+            var documentsStorage = new DocumentsStorage
+            {
+                Documents =
+                {
+                    new Document("plain_doc.txt"),
+                    new EncryptedDocument("encrypted_doc.txt", "my_secret_key")
+                }
+            };
+
+            if (documentsStorage.Documents[0] is Document plainDocument)
+            {
+                plainDocument.FillContent("This is a plain document.");
+            }
+
+            if (documentsStorage.Documents[1] is EncryptedDocument encryptedDocument)
+            {
+                encryptedDocument.FillContent("This is an encrypted document.");
+            }
+
+            foreach (var document in documentsStorage.Documents)
+            {
+                document.Display();
+            }
+
+            var jsonData = JsonSerializer.Serialize(documentsStorage, JsonOptions);
+            File.WriteAllText(filePath, jsonData, Encoding.UTF8);
+            Console.WriteLine($"Data saved to: {Path.GetFullPath(filePath)}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+    }
+}
