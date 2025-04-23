@@ -1,0 +1,150 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text;
+using System.Xml.Serialization;
+
+[XmlRoot("Documents")]
+public class DocumentsStorage
+{
+    [XmlArray("DocumentList")]
+    [XmlArrayItem("RegularDocument", Type = typeof(RegularDocument))]
+    [XmlArrayItem("EncryptedDocument", Type = typeof(EncryptedDocument))]
+    public List<Document> Documents { get; set; } = new List<Document>();
+}
+
+[XmlInclude(typeof(EncryptedDocument))]
+public abstract class Document
+{
+    [XmlElement("FilePath")]
+    public string FilePath { get; set; }
+
+    [XmlElement("Content")]
+    public string Content { get; set; }
+
+    protected Document() { }
+
+    protected Document(string filePath)
+    {
+        FilePath = filePath;
+        Content = string.Empty;
+    }
+
+    public virtual void Save()
+    {
+        File.WriteAllText(FilePath, Content);
+    }
+
+    public virtual void Display()
+    {
+        Console.WriteLine($"Файл: {FilePath}, Содержимое: {Content}");
+    }
+}
+
+public class RegularDocument : Document
+{
+    public RegularDocument() { }
+
+    public RegularDocument(string filePath) : base(filePath) { }
+}
+
+public class EncryptedDocument : Document
+{
+    private readonly string _encryptionKey;
+
+    public EncryptedDocument() { }
+
+    public EncryptedDocument(string filePath, string encryptionKey) : base(filePath)
+    {
+        _encryptionKey = encryptionKey;
+    }
+
+    public override void Save()
+    {
+        string encryptedContent = Encrypt(Content);
+        File.WriteAllText(FilePath, encryptedContent);
+    }
+
+    public string ReadDecryptedContent()
+    {
+        string encryptedContent = File.ReadAllText(FilePath);
+        return Decrypt(encryptedContent);
+    }
+
+    private string Encrypt(string input)
+    {
+        StringBuilder output = new StringBuilder();
+        for (int i = 0; i < input.Length; i++)
+        {
+            char c = (char)(input[i] ^ _encryptionKey[i % _encryptionKey.Length]);
+            output.Append(c);
+        }
+        return output.ToString();
+    }
+
+    private string Decrypt(string input)
+    {
+        return Encrypt(input); // Используем тот же метод для дешифрования
+    }
+}
+
+public class Program
+{
+    static void Main()
+    {
+        const string filePath = "documents.xml";
+
+        try
+        {
+            var documentsStorage = LoadDocuments(filePath);
+
+            // Добавление документов
+            documentsStorage.Documents.Add(new RegularDocument("doc1.txt") { Content = "Это первый документ." });
+            documentsStorage.Documents.Add(new EncryptedDocument("encrypted_doc.txt", "secret_key") { Content = "Это зашифрованный документ." });
+
+            // Сохранение документов
+            foreach (var doc in documentsStorage.Documents)
+            {
+                doc.Save();
+            }
+
+            SaveDocuments(filePath, documentsStorage);
+            Console.WriteLine($"Данные сохранены в файл: {Path.GetFullPath(filePath)}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка: {ex.Message}");
+        }
+    }
+    static DocumentsStorage LoadDocuments(string filePath)
+    {
+        if (!File.Exists(filePath))
+            return new DocumentsStorage();
+
+        try
+        {
+            var serializer = new XmlSerializer(typeof(DocumentsStorage));
+            using var reader = new StreamReader(filePath);
+            return (DocumentsStorage)serializer.Deserialize(reader);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка загрузки: {ex.Message}");
+            return new DocumentsStorage();
+        }
+    }
+
+    static void SaveDocuments(string filePath, DocumentsStorage storage)
+    {
+        try
+        {
+            var serializer = new XmlSerializer(typeof(DocumentsStorage));
+            using var writer = new StreamWriter(filePath);
+            serializer.Serialize(writer, storage);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка сохранения: {ex.Message}");
+        }
+    }
+}
